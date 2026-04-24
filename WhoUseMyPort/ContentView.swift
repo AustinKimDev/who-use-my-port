@@ -12,6 +12,7 @@ struct ContentView: View {
             content
                 .padding(isCompact ? 10 : 18)
         }
+        .background(TransparentWindowConfigurator())
         .preferredColorScheme(.dark)
         .onAppear {
             if viewModel.processes.isEmpty, !viewModel.isScanning {
@@ -42,6 +43,33 @@ struct ContentView: View {
     }
 }
 
+private struct TransparentWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            configure(window: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            configure(window: nsView.window)
+        }
+    }
+
+    private func configure(window: NSWindow?) {
+        guard let window else { return }
+
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.styleMask.insert(.fullSizeContentView)
+    }
+}
+
 private enum PrismTheme {
     static let ink = Color(red: 0.96, green: 0.97, blue: 1.0)
     static let muted = Color(red: 0.70, green: 0.74, blue: 0.82)
@@ -59,11 +87,14 @@ private enum PrismTheme {
 private struct PrismBackdrop: View {
     var body: some View {
         ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+
             LinearGradient(
                 colors: [
-                    Color(red: 0.08, green: 0.10, blue: 0.17),
-                    Color(red: 0.13, green: 0.11, blue: 0.22),
-                    Color(red: 0.08, green: 0.16, blue: 0.20)
+                    Color(red: 0.08, green: 0.10, blue: 0.17).opacity(0.62),
+                    Color(red: 0.13, green: 0.11, blue: 0.22).opacity(0.48),
+                    Color(red: 0.08, green: 0.16, blue: 0.20).opacity(0.38)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
