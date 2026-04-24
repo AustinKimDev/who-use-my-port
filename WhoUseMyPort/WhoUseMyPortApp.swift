@@ -9,6 +9,7 @@ struct WhoUseMyPortApp: App {
             ContentView(viewModel: viewModel, isCompact: false)
                 .frame(minWidth: 920, minHeight: 600)
         }
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("Scan") {
@@ -20,7 +21,7 @@ struct WhoUseMyPortApp: App {
 
         MenuBarExtra("Ports", systemImage: "point.3.connected.trianglepath.dotted") {
             ContentView(viewModel: viewModel, isCompact: true)
-                .frame(width: 420, height: 500)
+                .frame(width: 360, height: 430)
         }
         .menuBarExtraStyle(.window)
     }
@@ -28,9 +29,17 @@ struct WhoUseMyPortApp: App {
 
 @MainActor
 final class PortMonitorViewModel: ObservableObject {
-    @Published var queryText = "3000"
+    private static let queryDefaultsKey = "PortMonitorQueryText"
+
+    @Published var queryText: String {
+        didSet {
+            UserDefaults.standard.set(queryText, forKey: Self.queryDefaultsKey)
+        }
+    }
+
     @Published var processes: [PortProcess] = []
-    @Published var selectedPID: Int?
+    @Published var selectedPIDs: Set<Int> = []
+    @Published var focusedPID: Int?
     @Published var isScanning = false
     @Published var statusText = "Ready"
     @Published var errorMessage: String?
@@ -39,8 +48,19 @@ final class PortMonitorViewModel: ObservableObject {
     private let processController = ProcessController()
 
     var selectedProcess: PortProcess? {
-        guard let selectedPID else { return processes.first }
-        return processes.first { $0.pid == selectedPID }
+        if let focusedPID, selectedPIDs.contains(focusedPID) {
+            return processes.first { $0.pid == focusedPID }
+        }
+
+        return processes.first { selectedPIDs.contains($0.pid) }
+    }
+
+    var selectedProcesses: [PortProcess] {
+        processes.filter { selectedPIDs.contains($0.pid) }
+    }
+
+    init() {
+        queryText = UserDefaults.standard.string(forKey: Self.queryDefaultsKey) ?? "3000"
     }
 
     func scan() {
@@ -54,13 +74,15 @@ final class PortMonitorViewModel: ObservableObject {
                 let foundProcesses = try await scanner.scan(query)
 
                 processes = foundProcesses
-                selectedPID = foundProcesses.first?.pid
+                selectedPIDs = selectedPIDs.intersection(Set(foundProcesses.map(\.pid)))
+                focusedPID = selectedPIDs.contains(focusedPID ?? -1) ? focusedPID : selectedPIDs.first
                 statusText = foundProcesses.isEmpty
                     ? "No processes found for \(query.rawValue)"
                     : "Found \(foundProcesses.count) process\(foundProcesses.count == 1 ? "" : "es")"
             } catch {
                 processes = []
-                selectedPID = nil
+                selectedPIDs = []
+                focusedPID = nil
                 statusText = "Scan failed"
                 errorMessage = error.localizedDescription
             }
@@ -69,15 +91,56 @@ final class PortMonitorViewModel: ObservableObject {
         }
     }
 
+    func applyPreset(_ preset: PortPreset) {
+        queryText = preset.query
+        scan()
+    }
+
+    func toggleSelection(pid: Int, extendRange: Bool) {
+        if extendRange,
+           let anchorPID = focusedPID,
+           let anchorIndex = processes.firstIndex(where: { $0.pid == anchorPID }),
+           let targetIndex = processes.firstIndex(where: { $0.pid == pid }) {
+            let bounds = min(anchorIndex, targetIndex)...max(anchorIndex, targetIndex)
+            for process in processes[bounds] {
+                selectedPIDs.insert(process.pid)
+            }
+            focusedPID = pid
+            return
+        }
+
+        if selectedPIDs.contains(pid) {
+            selectedPIDs.remove(pid)
+            focusedPID = selectedPIDs.first
+        } else {
+            selectedPIDs.insert(pid)
+            focusedPID = pid
+        }
+    }
+
+    func clearSelection() {
+        selectedPIDs = []
+        focusedPID = nil
+    }
+
     func terminateSelected(force: Bool) {
-        guard let process = selectedProcess else { return }
+        let targets = selectedProcesses
+        guard !targets.isEmpty else { return }
+
+        let targetPIDs = targets.map(\.pid)
+        let label = targets.count == 1 ? "PID \(targetPIDs[0])" : "\(targets.count) processes"
         errorMessage = nil
-        statusText = force ? "Force killing PID \(process.pid)..." : "Terminating PID \(process.pid)..."
+        statusText = force ? "Force killing \(label)..." : "Terminating \(label)..."
 
         Task {
             do {
-                try await processController.terminate(pid: process.pid, force: force)
-                statusText = force ? "Force killed PID \(process.pid)" : "Terminated PID \(process.pid)"
+                for pid in targetPIDs {
+                    try await processController.terminate(pid: pid, force: force)
+                }
+
+                selectedPIDs.subtract(targetPIDs)
+                focusedPID = selectedPIDs.first
+                statusText = force ? "Force killed \(label)" : "Terminated \(label)"
                 scan()
             } catch {
                 statusText = "Terminate failed"

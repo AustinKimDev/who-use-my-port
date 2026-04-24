@@ -10,10 +10,11 @@ struct ContentView: View {
             PrismBackdrop()
 
             content
-                .padding(isCompact ? 10 : 18)
+                .padding(.horizontal, isCompact ? 8 : 18)
+                .padding(.top, isCompact ? 8 : 34)
+                .padding(.bottom, isCompact ? 8 : 18)
         }
         .background(TransparentWindowConfigurator())
-        .preferredColorScheme(.dark)
         .onAppear {
             if viewModel.processes.isEmpty, !viewModel.isScanning {
                 viewModel.scan()
@@ -29,13 +30,14 @@ struct ContentView: View {
             VStack(spacing: 14) {
                 QueryBar(viewModel: viewModel, isCompact: false)
 
-                HStack(spacing: 14) {
+                HSplitView {
                     ProcessList(viewModel: viewModel)
-                        .frame(minWidth: 320, idealWidth: 360)
+                        .frame(minWidth: 280, idealWidth: 360, maxWidth: 520)
 
                     DetailPanel(viewModel: viewModel)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 StatusBar(viewModel: viewModel)
             }
@@ -64,6 +66,7 @@ private struct TransparentWindowConfigurator: NSViewRepresentable {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
+        window.isMovableByWindowBackground = true
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.styleMask.insert(.fullSizeContentView)
@@ -71,17 +74,17 @@ private struct TransparentWindowConfigurator: NSViewRepresentable {
 }
 
 private enum PrismTheme {
-    static let ink = Color(red: 0.96, green: 0.97, blue: 1.0)
-    static let muted = Color(red: 0.70, green: 0.74, blue: 0.82)
-    static let faint = Color(red: 0.48, green: 0.53, blue: 0.63)
-    static let cyan = Color(red: 0.43, green: 0.82, blue: 0.96)
-    static let violet = Color(red: 0.82, green: 0.48, blue: 1.0)
-    static let mint = Color(red: 0.42, green: 0.92, blue: 0.70)
-    static let amber = Color(red: 1.0, green: 0.68, blue: 0.32)
-    static let danger = Color(red: 1.0, green: 0.42, blue: 0.44)
-    static let panelStroke = Color.white.opacity(0.15)
-    static let panelFill = Color.white.opacity(0.08)
-    static let selectedFill = Color(red: 0.52, green: 0.64, blue: 1.0).opacity(0.18)
+    static let ink = Color.primary
+    static let muted = Color.secondary
+    static let faint = Color.secondary.opacity(0.62)
+    static let cyan = Color.accentColor
+    static let violet = Color.accentColor.opacity(0.78)
+    static let mint = Color.green.opacity(0.82)
+    static let amber = Color.orange.opacity(0.86)
+    static let danger = Color.red.opacity(0.86)
+    static let panelStroke = Color.primary.opacity(0.10)
+    static let panelFill = Color(nsColor: .controlBackgroundColor).opacity(0.34)
+    static let selectedFill = Color.accentColor.opacity(0.14)
 }
 
 private struct PrismBackdrop: View {
@@ -92,33 +95,12 @@ private struct PrismBackdrop: View {
 
             LinearGradient(
                 colors: [
-                    Color(red: 0.08, green: 0.10, blue: 0.17).opacity(0.62),
-                    Color(red: 0.13, green: 0.11, blue: 0.22).opacity(0.48),
-                    Color(red: 0.08, green: 0.16, blue: 0.20).opacity(0.38)
+                    Color(nsColor: .windowBackgroundColor).opacity(0.22),
+                    Color(nsColor: .underPageBackgroundColor).opacity(0.16),
+                    Color(nsColor: .controlBackgroundColor).opacity(0.12)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
-
-            RadialGradient(
-                colors: [PrismTheme.violet.opacity(0.34), .clear],
-                center: .topLeading,
-                startRadius: 20,
-                endRadius: 420
-            )
-
-            RadialGradient(
-                colors: [PrismTheme.cyan.opacity(0.25), .clear],
-                center: .topTrailing,
-                startRadius: 40,
-                endRadius: 500
-            )
-
-            RadialGradient(
-                colors: [PrismTheme.mint.opacity(0.16), .clear],
-                center: .bottomTrailing,
-                startRadius: 40,
-                endRadius: 460
             )
         }
         .ignoresSafeArea()
@@ -135,23 +117,13 @@ private struct GlassPanel: ViewModifier {
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(fillOpacity))
+                    .fill(PrismTheme.panelFill.opacity(fillOpacity * 5))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(strokeOpacity + 0.06),
-                                PrismTheme.cyan.opacity(strokeOpacity),
-                                PrismTheme.violet.opacity(strokeOpacity * 0.8)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .strokeBorder(PrismTheme.panelStroke.opacity(strokeOpacity * 5))
             )
-            .shadow(color: Color.black.opacity(0.28), radius: 24, y: 16)
+            .shadow(color: Color.black.opacity(0.10), radius: 12, y: 7)
     }
 }
 
@@ -166,64 +138,65 @@ private struct QueryBar: View {
     var isCompact: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "network")
-                .foregroundStyle(PrismTheme.cyan)
-                .font(.system(size: isCompact ? 13 : 16, weight: .semibold))
+        VStack(spacing: isCompact ? 7 : 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "network")
+                    .foregroundStyle(PrismTheme.cyan)
+                    .font(.system(size: isCompact ? 13 : 16, weight: .semibold))
 
-            TextField("Port or range", text: $viewModel.queryText)
-                .textFieldStyle(.plain)
-                .font(isCompact ? .callout : .title3.weight(.semibold))
-                .foregroundStyle(PrismTheme.ink)
-                .onSubmit {
+                TextField("Port or range", text: $viewModel.queryText)
+                    .textFieldStyle(.plain)
+                    .font(isCompact ? .callout : .title3.weight(.semibold))
+                    .foregroundStyle(PrismTheme.ink)
+                    .onSubmit {
+                        viewModel.scan()
+                    }
+
+                if !isCompact {
+                    Text("3000, 3000-3010")
+                        .font(.caption)
+                        .foregroundStyle(PrismTheme.faint)
+                }
+
+                Button {
                     viewModel.scan()
+                } label: {
+                    if isCompact {
+                        Image(systemName: "arrow.clockwise")
+                    } else {
+                        Label(viewModel.isScanning ? "Scanning" : "Scan", systemImage: "arrow.clockwise")
+                    }
                 }
-
-            if !isCompact {
-                Text("3000, 3000-3010")
-                    .font(.caption)
-                    .foregroundStyle(PrismTheme.faint)
+                .buttonStyle(PrismButtonStyle(prominent: true, isCompact: isCompact))
+                .controlSize(isCompact ? .small : .regular)
+                .disabled(viewModel.isScanning)
             }
 
-            Button {
-                viewModel.scan()
-            } label: {
-                if isCompact {
-                    Image(systemName: "arrow.clockwise")
-                } else {
-                    Label(viewModel.isScanning ? "Scanning" : "Scan", systemImage: "arrow.clockwise")
-                }
-            }
-            .buttonStyle(PrismButtonStyle(prominent: true))
-            .controlSize(isCompact ? .small : .regular)
-            .disabled(viewModel.isScanning)
+            PresetStrip(viewModel: viewModel, isCompact: isCompact)
         }
         .padding(.horizontal, isCompact ? 10 : 14)
-        .padding(.vertical, isCompact ? 8 : 12)
+        .padding(.vertical, isCompact ? 8 : 11)
         .glassPanel(cornerRadius: isCompact ? 16 : 22, fillOpacity: 0.10)
     }
 }
 
 private struct PrismButtonStyle: ButtonStyle {
     var prominent = false
+    var isCompact = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.callout.weight(.semibold))
+            .font(isCompact ? .caption.weight(.semibold) : .callout.weight(.semibold))
             .foregroundStyle(prominent ? Color(red: 0.04, green: 0.07, blue: 0.11) : PrismTheme.ink)
-            .padding(.horizontal, prominent ? 12 : 8)
-            .padding(.vertical, prominent ? 7 : 6)
+            .padding(.horizontal, isCompact ? 8 : (prominent ? 12 : 8))
+            .padding(.vertical, isCompact ? 5 : (prominent ? 7 : 6))
             .background(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(
-                        prominent
-                        ? LinearGradient(colors: [PrismTheme.cyan, PrismTheme.violet.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : LinearGradient(colors: [Color.white.opacity(0.12), Color.white.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
+                RoundedRectangle(cornerRadius: isCompact ? 9 : 11, style: .continuous)
+                    .fill(prominent ? PrismTheme.cyan.opacity(0.88) : PrismTheme.panelFill)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(Color.white.opacity(prominent ? 0.30 : 0.14))
+                RoundedRectangle(cornerRadius: isCompact ? 9 : 11, style: .continuous)
+                    .strokeBorder(prominent ? Color.primary.opacity(0.08) : PrismTheme.panelStroke)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .opacity(configuration.isPressed ? 0.88 : 1)
@@ -231,21 +204,72 @@ private struct PrismButtonStyle: ButtonStyle {
     }
 }
 
+private struct PresetStrip: View {
+    @ObservedObject var viewModel: PortMonitorViewModel
+    var isCompact: Bool
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 6), count: isCompact ? 3 : 6)
+    }
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 6) {
+            ForEach(PortPreset.defaults) { preset in
+                Button {
+                    viewModel.applyPreset(preset)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: preset.systemImage)
+                            .font(.system(size: isCompact ? 9 : 10, weight: .semibold))
+
+                        Text(preset.name)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PresetButtonStyle(isCompact: isCompact))
+                .help("\(preset.description): \(preset.query)")
+            }
+        }
+    }
+}
+
+private struct PresetButtonStyle: ButtonStyle {
+    var isCompact: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: isCompact ? 10 : 11, weight: .semibold))
+            .foregroundStyle(PrismTheme.ink)
+            .padding(.horizontal, isCompact ? 6 : 8)
+            .padding(.vertical, isCompact ? 5 : 6)
+            .background(
+                RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
+                    .fill(configuration.isPressed ? PrismTheme.selectedFill : PrismTheme.panelFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
+                    .strokeBorder(configuration.isPressed ? PrismTheme.cyan.opacity(0.22) : PrismTheme.panelStroke)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
+}
+
 private struct CompactMenuBarView: View {
     @ObservedObject var viewModel: PortMonitorViewModel
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             QueryBar(viewModel: viewModel, isCompact: true)
             CompactStatus(viewModel: viewModel)
 
             CompactProcessList(viewModel: viewModel)
-                .frame(height: 216)
-                .glassPanel(cornerRadius: 18, fillOpacity: 0.07)
+                .frame(height: 164)
+                .glassPanel(cornerRadius: 16, fillOpacity: 0.07)
 
             CompactProcessInspector(viewModel: viewModel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .glassPanel(cornerRadius: 18, fillOpacity: 0.07)
+                .glassPanel(cornerRadius: 16, fillOpacity: 0.07)
         }
     }
 }
@@ -298,6 +322,12 @@ private struct ProcessList: View {
                 Text("\(viewModel.processes.count)")
                     .font(.caption.monospacedDigit().weight(.semibold))
                     .foregroundStyle(PrismTheme.muted)
+
+                if !viewModel.selectedPIDs.isEmpty {
+                    Text("\(viewModel.selectedPIDs.count) selected")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(PrismTheme.cyan)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
@@ -315,20 +345,22 @@ private struct CompactProcessList: View {
         ScrollView {
             LazyVStack(spacing: 6) {
                 if viewModel.processes.isEmpty, !viewModel.isScanning {
-                    ContentUnavailableView(
-                        "No Processes",
+                    NativeEmptyState(
+                        title: "No processes",
                         systemImage: "network.slash",
-                        description: Text("Try another port or range.")
+                        message: "Try another port or preset."
                     )
-                    .foregroundStyle(PrismTheme.muted)
-                    .padding(.top, 40)
+                    .frame(maxWidth: .infinity, minHeight: 180)
                 } else {
                     ForEach(viewModel.processes) { process in
                         CompactProcessRow(
                             process: process,
-                            isSelected: viewModel.selectedPID == process.pid
+                            isSelected: viewModel.selectedPIDs.contains(process.pid)
                         ) {
-                            viewModel.selectedPID = process.pid
+                            viewModel.toggleSelection(
+                                pid: process.pid,
+                                extendRange: NSEvent.modifierFlags.contains(.shift)
+                            )
                         }
                     }
                 }
@@ -374,10 +406,13 @@ private struct CompactProcessRow: View {
             .background(rowBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(isSelected ? PrismTheme.cyan.opacity(0.34) : Color.white.opacity(0.08))
+                    .strokeBorder(isSelected ? PrismTheme.cyan.opacity(0.34) : PrismTheme.panelStroke)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(process.command), PID \(process.pid), ports \(process.portSummary)")
+        .accessibilityHint("Click to toggle selection. Shift click selects a range.")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 
     private var rowBackground: some View {
@@ -385,16 +420,41 @@ private struct CompactProcessRow: View {
             .fill(
                 isSelected
                 ? LinearGradient(
-                    colors: [PrismTheme.violet.opacity(0.23), PrismTheme.cyan.opacity(0.16)],
+                    colors: [PrismTheme.cyan.opacity(0.14), PrismTheme.cyan.opacity(0.08)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 : LinearGradient(
-                    colors: [Color.white.opacity(0.07), Color.white.opacity(0.03)],
+                    colors: [PrismTheme.panelFill, PrismTheme.panelFill.opacity(0.70)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
+    }
+}
+
+private struct NativeEmptyState: View {
+    var title: String
+    var systemImage: String
+    var message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(PrismTheme.faint)
+
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(PrismTheme.ink)
+
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(PrismTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
     }
 }
 
@@ -406,6 +466,10 @@ private struct DetailPanel: View {
             if let process = viewModel.selectedProcess {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
+                        if viewModel.selectedProcesses.count > 1 {
+                            BulkSelectionBar(viewModel: viewModel)
+                        }
+
                         detailHeader(process)
                         metricChips(process)
                         processMetadata(process)
@@ -414,14 +478,16 @@ private struct DetailPanel: View {
                     .padding(16)
                 }
             } else {
-                ContentUnavailableView(
-                    "Select a Process",
+                NativeEmptyState(
+                    title: "Select a process",
                     systemImage: "info.circle",
-                    description: Text("Choose a result to inspect process details.")
+                    message: "Choose a result to inspect ports, PID, and launch arguments."
                 )
-                .foregroundStyle(PrismTheme.muted)
+                .padding(18)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .glassPanel(cornerRadius: 24, fillOpacity: 0.07)
     }
 
@@ -429,7 +495,7 @@ private struct DetailPanel: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(process.command)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(.title2.weight(.semibold))
                     .foregroundStyle(PrismTheme.ink)
                     .lineLimit(1)
 
@@ -478,8 +544,8 @@ private struct DetailPanel: View {
             MetadataLine(title: "Arguments", value: process.arguments ?? "Unknown", lineLimit: 3)
         }
         .padding(13)
-        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(0.10)))
+        .background(PrismTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(PrismTheme.panelStroke))
     }
 
     private func connectionsList(_ process: PortProcess) -> some View {
@@ -493,14 +559,14 @@ private struct DetailPanel: View {
                     ConnectionRow(connection: connection)
                     if connection.id != process.connections.last?.id {
                         Divider()
-                            .overlay(Color.white.opacity(0.08))
+                            .overlay(PrismTheme.panelStroke)
                     }
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(0.10)))
+            .background(PrismTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(PrismTheme.panelStroke))
         }
     }
 
@@ -531,6 +597,39 @@ private struct DetailPanel: View {
     }
 }
 
+private struct BulkSelectionBar: View {
+    @ObservedObject var viewModel: PortMonitorViewModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Label("\(viewModel.selectedProcesses.count) selected", systemImage: "checkmark.circle")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(PrismTheme.ink)
+
+            Spacer()
+
+            Button("Clear") {
+                viewModel.clearSelection()
+            }
+            .buttonStyle(PrismButtonStyle(isCompact: true))
+
+            Button("Terminate") {
+                viewModel.terminateSelected(force: false)
+            }
+            .buttonStyle(PrismButtonStyle(isCompact: true))
+
+            Button("Force Kill") {
+                viewModel.terminateSelected(force: true)
+            }
+            .buttonStyle(PrismButtonStyle(isCompact: true))
+            .foregroundStyle(PrismTheme.danger)
+        }
+        .padding(10)
+        .background(PrismTheme.selectedFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(PrismTheme.cyan.opacity(0.22)))
+    }
+}
+
 private struct CompactProcessInspector: View {
     @ObservedObject var viewModel: PortMonitorViewModel
 
@@ -558,6 +657,9 @@ private struct CompactProcessInspector: View {
                 HStack(spacing: 6) {
                     MetricChip(title: "Ports", value: process.portSummary, tint: PrismTheme.cyan, isCompact: true)
                     MetricChip(title: "Conn", value: "\(process.connections.count)", tint: PrismTheme.mint, isCompact: true)
+                    if viewModel.selectedProcesses.count > 1 {
+                        MetricChip(title: "Selected", value: "\(viewModel.selectedProcesses.count)", tint: PrismTheme.cyan, isCompact: true)
+                    }
                 }
 
                 compactMetadata(process)
@@ -570,10 +672,13 @@ private struct CompactProcessInspector: View {
                     }
                 }
             } else {
-                ContentUnavailableView("Select a Process", systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundStyle(PrismTheme.muted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                NativeEmptyState(
+                    title: "Select",
+                    systemImage: "info.circle",
+                    message: "Pick a process."
+                )
+                .font(.caption)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
         .padding(12)
@@ -614,7 +719,7 @@ private struct CompactProcessInspector: View {
                 .textSelection(.enabled)
         }
         .padding(9)
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(PrismTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func copyDetails(_ process: PortProcess) {
@@ -658,10 +763,10 @@ private struct GlassIconButton: View {
                 .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: isCompact ? 26 : 32, height: isCompact ? 26 : 32)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: isCompact ? 9 : 11, style: .continuous))
+                .background(PrismTheme.panelFill, in: RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: isCompact ? 9 : 11, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.14))
+                    RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
+                        .strokeBorder(PrismTheme.panelStroke)
                 )
         }
         .buttonStyle(.plain)
@@ -772,7 +877,6 @@ private struct StatusBar: View {
             Circle()
                 .fill(viewModel.errorMessage == nil ? PrismTheme.mint : PrismTheme.danger)
                 .frame(width: 7, height: 7)
-                .shadow(color: (viewModel.errorMessage == nil ? PrismTheme.mint : PrismTheme.danger).opacity(0.8), radius: 5)
 
             Text(viewModel.errorMessage ?? viewModel.statusText)
                 .font(.caption.weight(.medium))

@@ -49,6 +49,54 @@ struct PortQuery: Equatable {
     }
 }
 
+struct PortPreset: Identifiable, Hashable {
+    var id: String { name }
+
+    var name: String
+    var systemImage: String
+    var query: String
+    var description: String
+
+    static let defaults: [PortPreset] = [
+        PortPreset(
+            name: "Web",
+            systemImage: "globe",
+            query: "80, 443, 8000, 8080, 8443",
+            description: "HTTP, HTTPS, common local web servers"
+        ),
+        PortPreset(
+            name: "JS Apps",
+            systemImage: "curlybraces",
+            query: "3000-3005, 5173-5175",
+            description: "Next.js, React, Vite, fallback dev ports"
+        ),
+        PortPreset(
+            name: "Node API",
+            systemImage: "server.rack",
+            query: "3000-3005, 4000-4005, 5000-5005",
+            description: "Node, Express, GraphQL, API fallback ports"
+        ),
+        PortPreset(
+            name: "Python",
+            systemImage: "terminal",
+            query: "5000-5005, 8000-8005, 8501",
+            description: "Flask, Django, FastAPI, Streamlit"
+        ),
+        PortPreset(
+            name: "Backend",
+            systemImage: "gearshape.2",
+            query: "8080-8085, 9000-9005, 9090",
+            description: "Spring, JVM, admin and metrics ports"
+        ),
+        PortPreset(
+            name: "Data",
+            systemImage: "externaldrive.connected.to.line.below",
+            query: "5432, 3306, 6379, 27017, 9200",
+            description: "Postgres, MySQL, Redis, MongoDB, Elasticsearch"
+        )
+    ]
+}
+
 enum PortQueryError: LocalizedError {
     case empty
     case invalidSegment(String)
