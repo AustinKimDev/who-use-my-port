@@ -6,17 +6,19 @@ struct PortScanner {
             var processMap: [Int: PortProcess] = [:]
 
             for spec in query.lsofSpecs {
-                let output = try Shell.run(
-                    executable: "/usr/sbin/lsof",
-                    arguments: ["-nP", "-F", "pcLnPT", "-iTCP:\(spec)", "-iUDP:\(spec)"],
-                    allowNoResults: true
-                )
+                for selector in ["-iTCP:\(spec)", "-iUDP:\(spec)"] {
+                    let output = try Shell.run(
+                        executable: "/usr/sbin/lsof",
+                        arguments: ["-nP", "-F", "pcLnPT", selector],
+                        allowNoResults: true
+                    )
 
-                for process in Self.parseLsofOutput(output) {
-                    var existing = processMap[process.pid] ?? process
-                    let knownConnections = Set(existing.connections)
-                    existing.connections.append(contentsOf: process.connections.filter { !knownConnections.contains($0) })
-                    processMap[process.pid] = existing
+                    for process in Self.parseLsofOutput(output) {
+                        var existing = processMap[process.pid] ?? process
+                        let knownConnections = Set(existing.connections)
+                        existing.connections.append(contentsOf: process.connections.filter { !knownConnections.contains($0) })
+                        processMap[process.pid] = existing
+                    }
                 }
             }
 
