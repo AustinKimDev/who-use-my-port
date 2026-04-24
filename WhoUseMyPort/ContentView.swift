@@ -14,7 +14,7 @@ struct ContentView: View {
                 .padding(.top, isCompact ? 8 : 34)
                 .padding(.bottom, isCompact ? 8 : 18)
         }
-        .background(TransparentWindowConfigurator())
+        .background(TransparentWindowConfigurator(isResizable: isCompact))
         .onAppear {
             if viewModel.processes.isEmpty, !viewModel.isScanning {
                 viewModel.scan()
@@ -46,6 +46,8 @@ struct ContentView: View {
 }
 
 private struct TransparentWindowConfigurator: NSViewRepresentable {
+    var isResizable = false
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
@@ -70,6 +72,11 @@ private struct TransparentWindowConfigurator: NSViewRepresentable {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.styleMask.insert(.fullSizeContentView)
+
+        if isResizable {
+            window.styleMask.insert(.resizable)
+            window.minSize = NSSize(width: 340, height: 260)
+        }
     }
 }
 
@@ -259,51 +266,170 @@ private struct CompactMenuBarView: View {
     @ObservedObject var viewModel: PortMonitorViewModel
 
     var body: some View {
-        VStack(spacing: 8) {
-            QueryBar(viewModel: viewModel, isCompact: true)
-            CompactStatus(viewModel: viewModel)
+        VStack(spacing: 7) {
+            MenuBarCommandRow(viewModel: viewModel)
 
-            CompactProcessList(viewModel: viewModel)
-                .frame(height: 164)
-                .glassPanel(cornerRadius: 16, fillOpacity: 0.07)
+            MenuBarPresetRow(viewModel: viewModel)
 
-            CompactProcessInspector(viewModel: viewModel)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .glassPanel(cornerRadius: 16, fillOpacity: 0.07)
+            Divider()
+                .overlay(PrismTheme.panelStroke)
+
+            CompactProcessList(viewModel: viewModel, isMenuBar: true)
+                .frame(minHeight: 130, maxHeight: .infinity)
+
+            MenuBarSelectionFooter(viewModel: viewModel)
         }
     }
 }
 
-private struct CompactStatus: View {
+private struct MenuBarCommandRow: View {
     @ObservedObject var viewModel: PortMonitorViewModel
 
     var body: some View {
-        HStack(spacing: 7) {
-            if viewModel.isScanning {
-                ProgressView()
-                    .controlSize(.small)
-            }
+        HStack(spacing: 8) {
+            Image(systemName: "network")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(PrismTheme.cyan)
+
+            TextField("Port or range", text: $viewModel.queryText)
+                .textFieldStyle(.plain)
+                .font(.callout.monospacedDigit().weight(.semibold))
+                .onSubmit {
+                    viewModel.scan()
+                }
 
             Circle()
                 .fill(viewModel.errorMessage == nil ? PrismTheme.mint : PrismTheme.danger)
-                .frame(width: 7, height: 7)
-                .shadow(color: (viewModel.errorMessage == nil ? PrismTheme.mint : PrismTheme.danger).opacity(0.8), radius: 5)
+                .frame(width: 6, height: 6)
 
-            Text(viewModel.errorMessage ?? viewModel.statusText)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(viewModel.errorMessage == nil ? PrismTheme.muted : PrismTheme.danger)
+            Text(statusLabel)
+                .font(.caption2.monospacedDigit().weight(.medium))
+                .foregroundStyle(viewModel.errorMessage == nil ? PrismTheme.faint : PrismTheme.danger)
                 .lineLimit(1)
+                .frame(maxWidth: 82, alignment: .trailing)
 
-            Spacer()
-
-            Text("\(viewModel.processes.count)")
-                .font(.caption2.monospacedDigit().weight(.semibold))
-                .foregroundStyle(PrismTheme.ink)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(PrismTheme.panelFill, in: Capsule())
+            Button {
+                viewModel.scan()
+            } label: {
+                if viewModel.isScanning {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+            .buttonStyle(PrismButtonStyle(prominent: true, isCompact: true))
+            .disabled(viewModel.isScanning)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(PrismTheme.panelStroke))
+    }
+
+    private var statusLabel: String {
+        if let errorMessage = viewModel.errorMessage {
+            return errorMessage
+        }
+
+        if viewModel.processes.isEmpty {
+            return "0 found"
+        }
+
+        if viewModel.selectedPIDs.isEmpty {
+            return "\(viewModel.processes.count) found"
+        }
+
+        return "\(viewModel.selectedPIDs.count)/\(viewModel.processes.count)"
+    }
+}
+
+private struct MenuBarPresetRow: View {
+    @ObservedObject var viewModel: PortMonitorViewModel
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                ForEach(PortPreset.defaults) { preset in
+                    Button {
+                        viewModel.applyPreset(preset)
+                    } label: {
+                        Label(preset.name, systemImage: preset.systemImage)
+                            .labelStyle(.titleAndIcon)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(PresetButtonStyle(isCompact: true))
+                    .help("\(preset.description): \(preset.query)")
+                }
+            }
+            .padding(.horizontal, 1)
+            .padding(.vertical, 1)
+        }
+    }
+}
+
+private struct MenuBarSelectionFooter: View {
+    @ObservedObject var viewModel: PortMonitorViewModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let process = viewModel.selectedProcess {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(process.command)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+
+                    Text("\(viewModel.selectedProcesses.count) selected | PID \(process.pid)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(PrismTheme.faint)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 4)
+
+                GlassIconButton(systemImage: "doc.on.doc", help: "Copy", isCompact: true) {
+                    copyDetails(process)
+                }
+
+                GlassIconButton(systemImage: "xmark.circle", help: "Terminate selected", tint: PrismTheme.danger, isCompact: true) {
+                    viewModel.terminateSelected(force: false)
+                }
+
+                GlassIconButton(systemImage: "exclamationmark.triangle", help: "Force kill selected", tint: PrismTheme.amber, isCompact: true) {
+                    viewModel.terminateSelected(force: true)
+                }
+            } else {
+                Text(viewModel.errorMessage ?? viewModel.statusText)
+                    .font(.caption)
+                    .foregroundStyle(viewModel.errorMessage == nil ? PrismTheme.muted : PrismTheme.danger)
+                    .lineLimit(1)
+
+                Spacer()
+            }
+        }
+        .frame(minHeight: 30)
+        .padding(.horizontal, 2)
+    }
+
+    private func copyDetails(_ process: PortProcess) {
+        let connections = process.connections
+            .map { "- \($0.protocolName) \($0.displayState) \($0.name)" }
+            .joined(separator: "\n")
+
+        let text = """
+        Command: \(process.command)
+        PID: \(process.pid)
+        User: \(process.user)
+        Ports: \(process.portSummary)
+        Executable: \(process.executablePath ?? "Unknown")
+        Arguments: \(process.arguments ?? "Unknown")
+
+        Connections:
+        \(connections)
+        """
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
@@ -340,6 +466,7 @@ private struct ProcessList: View {
 
 private struct CompactProcessList: View {
     @ObservedObject var viewModel: PortMonitorViewModel
+    var isMenuBar = false
 
     var body: some View {
         ScrollView {
@@ -350,12 +477,13 @@ private struct CompactProcessList: View {
                         systemImage: "network.slash",
                         message: "Try another port or preset."
                     )
-                    .frame(maxWidth: .infinity, minHeight: 180)
+                    .frame(maxWidth: .infinity, minHeight: isMenuBar ? 96 : 180)
                 } else {
                     ForEach(viewModel.processes) { process in
                         CompactProcessRow(
                             process: process,
-                            isSelected: viewModel.selectedPIDs.contains(process.pid)
+                            isSelected: viewModel.selectedPIDs.contains(process.pid),
+                            isMenuBar: isMenuBar
                         ) {
                             viewModel.toggleSelection(
                                 pid: process.pid,
@@ -365,7 +493,7 @@ private struct CompactProcessList: View {
                     }
                 }
             }
-            .padding(10)
+            .padding(isMenuBar ? 2 : 10)
         }
     }
 }
@@ -373,19 +501,26 @@ private struct CompactProcessList: View {
 private struct CompactProcessRow: View {
     var process: PortProcess
     var isSelected: Bool
+    var isMenuBar = false
     var select: () -> Void
 
     var body: some View {
         Button(action: select) {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: isMenuBar ? 7 : 10) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(PrismTheme.cyan)
+                }
+
+                VStack(alignment: .leading, spacing: isMenuBar ? 2 : 4) {
                     Text(process.command)
-                        .font(.callout.weight(.semibold))
+                        .font(isMenuBar ? .caption.weight(.semibold) : .callout.weight(.semibold))
                         .foregroundStyle(PrismTheme.ink)
                         .lineLimit(1)
 
                     HStack(spacing: 6) {
-                        Text("Ports \(process.portSummary)")
+                        Text(isMenuBar ? process.portSummary : "Ports \(process.portSummary)")
                         Text("PID \(process.pid)")
                     }
                     .font(.caption2.monospacedDigit())
@@ -400,12 +535,16 @@ private struct CompactProcessRow: View {
                     .foregroundStyle(isSelected ? PrismTheme.cyan : PrismTheme.faint)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
+            .padding(.horizontal, isMenuBar ? 7 : 10)
+            .padding(.vertical, isMenuBar ? 6 : 9)
             .contentShape(Rectangle())
-            .background(rowBackground)
+            .background {
+                if isMenuBar || isSelected {
+                    rowBackground
+                }
+            }
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: isMenuBar ? 9 : 14, style: .continuous)
                     .strokeBorder(isSelected ? PrismTheme.cyan.opacity(0.34) : PrismTheme.panelStroke)
             )
         }
@@ -416,7 +555,7 @@ private struct CompactProcessRow: View {
     }
 
     private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
+        RoundedRectangle(cornerRadius: isMenuBar ? 9 : 14, style: .continuous)
             .fill(
                 isSelected
                 ? LinearGradient(

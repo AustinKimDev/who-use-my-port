@@ -21,7 +21,7 @@ struct WhoUseMyPortApp: App {
 
         MenuBarExtra("Ports", systemImage: "point.3.connected.trianglepath.dotted") {
             ContentView(viewModel: viewModel, isCompact: true)
-                .frame(width: 360, height: 430)
+                .frame(minWidth: 340, idealWidth: 380, maxWidth: 560, minHeight: 260, idealHeight: 350, maxHeight: 620)
         }
         .menuBarExtraStyle(.window)
     }
