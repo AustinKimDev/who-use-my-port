@@ -13,7 +13,7 @@ struct PortScanner {
                         allowNoResults: true
                     )
 
-                    for process in Self.parseLsofOutput(output) {
+                    for process in Self.parseLsofOutput(output, matching: query) {
                         var existing = processMap[process.pid] ?? process
                         let knownConnections = Set(existing.connections)
                         existing.connections.append(contentsOf: process.connections.filter { !knownConnections.contains($0) })
@@ -33,7 +33,7 @@ struct PortScanner {
         }.value
     }
 
-    private static func parseLsofOutput(_ output: String) -> [PortProcess] {
+    private static func parseLsofOutput(_ output: String, matching query: PortQuery) -> [PortProcess] {
         var results: [PortProcess] = []
         var currentPID: Int?
         var currentCommand = ""
@@ -102,7 +102,18 @@ struct PortScanner {
         }
 
         flushCurrentProcess()
-        return results.filter { !$0.connections.isEmpty }
+        return results.compactMap { process in
+            let matchingConnections = process.connections.filter { connection in
+                guard let localPort = connection.localPort else { return false }
+                return query.contains(port: localPort)
+            }
+
+            guard !matchingConnections.isEmpty else { return nil }
+
+            var filteredProcess = process
+            filteredProcess.connections = matchingConnections
+            return filteredProcess
+        }
     }
 
     private static func enrichProcess(_ process: PortProcess) throws -> PortProcess {

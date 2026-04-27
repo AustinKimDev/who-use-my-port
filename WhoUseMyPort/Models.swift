@@ -10,6 +10,23 @@ struct PortQuery: Equatable {
         }
     }
 
+    func contains(port: Int) -> Bool {
+        segments.contains { $0.contains(port) }
+    }
+
+    func expandedPorts(limit: Int = 240) -> [Int]? {
+        var ports: [Int] = []
+
+        for segment in segments {
+            for port in segment {
+                guard ports.count < limit else { return nil }
+                ports.append(port)
+            }
+        }
+
+        return ports
+    }
+
     static func parse(_ input: String) throws -> PortQuery {
         let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedInput.isEmpty else {
@@ -145,5 +162,92 @@ struct PortProcess: Identifiable, Hashable {
     var protocolsSummary: String {
         let protocols = Set(connections.map(\.protocolName)).sorted()
         return protocols.isEmpty ? "UNKNOWN" : protocols.joined(separator: ", ")
+    }
+}
+
+struct PortRegistration: Codable, Identifiable, Hashable {
+    var port: Int
+    var tool: String
+    var projectPath: String
+    var command: String?
+    var purpose: String?
+    var pid: Int?
+    var startedAt: Date
+    var updatedAt: Date
+
+    var id: String {
+        "\(port)|\(tool)|\(projectPath)"
+    }
+
+    var projectName: String {
+        URL(fileURLWithPath: projectPath).lastPathComponent
+    }
+
+    var isStale: Bool {
+        Date().timeIntervalSince(updatedAt) > 120
+    }
+}
+
+struct MonitoredPort: Identifiable, Hashable {
+    var id: Int { port }
+
+    var port: Int
+    var processes: [PortProcess]
+    var registrations: [PortRegistration]
+
+    var primaryProcess: PortProcess? {
+        processes.first
+    }
+
+    var primaryRegistration: PortRegistration? {
+        registrations.first
+    }
+
+    var isOccupied: Bool {
+        !processes.isEmpty
+    }
+
+    var isReserved: Bool {
+        !registrations.isEmpty
+    }
+
+    var statusTitle: String {
+        if isOccupied {
+            return "Occupied"
+        }
+
+        if isReserved {
+            return primaryRegistration?.isStale == true ? "Stale" : "Reserved"
+        }
+
+        return "Available"
+    }
+
+    var statusSystemImage: String {
+        if isOccupied {
+            return "lock.fill"
+        }
+
+        if isReserved {
+            return primaryRegistration?.isStale == true ? "clock.badge.exclamationmark" : "person.crop.circle.badge.checkmark"
+        }
+
+        return "checkmark.circle"
+    }
+
+    var ownerSummary: String {
+        if let registration = primaryRegistration {
+            return "\(registration.tool) · \(registration.projectName)"
+        }
+
+        return "Unregistered"
+    }
+
+    var processSummary: String {
+        guard let process = primaryProcess else {
+            return isReserved ? "Waiting for process" : "No listener"
+        }
+
+        return "\(process.command) · PID \(process.pid)"
     }
 }
