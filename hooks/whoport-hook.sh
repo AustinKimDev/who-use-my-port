@@ -3,7 +3,7 @@
 # Source this file from an AI terminal/session bootstrap.
 # Example:
 #   export WHOPORT_TOOL=codex
-#   . /path/to/who-use-my-port/hooks/whoport-hook.sh
+#   . /path/to/project/hooks/whoport-hook.sh
 #   whoport_run 3000 -- pnpm dev
 
 if [ -z "${WHOPORT_BIN:-}" ]; then

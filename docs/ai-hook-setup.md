@@ -12,8 +12,8 @@ Source the hook:
 
 ```sh
 export WHOPORT_TOOL=codex
-export WHOPORT_BIN=/Users/jidong/workspace/side/who-use-my-port/bin/whoport
-. /Users/jidong/workspace/side/who-use-my-port/hooks/whoport-hook.sh
+export WHOPORT_BIN="$PWD/bin/whoport"
+. "$PWD/hooks/whoport-hook.sh"
 ```
 
 Run a dev server with tracking:

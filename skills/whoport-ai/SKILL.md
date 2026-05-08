@@ -18,7 +18,7 @@ Keep local dev ports visible to the user and avoid accidental port conflicts.
 2. Run:
 
    ```sh
-   "${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" check <port>
+   "${WHOPORT_BIN:-whoport}" check <port>
    ```
 
 3. Interpret the JSON:
@@ -31,7 +31,7 @@ Keep local dev ports visible to the user and avoid accidental port conflicts.
 5. Start the server through:
 
    ```sh
-   "${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" wrap <port> --tool <tool-name> --project "$PWD" -- <command...>
+   "${WHOPORT_BIN:-whoport}" wrap <port> --tool <tool-name> --project "$PWD" -- <command...>
    ```
 
    This is mandatory for AI-started services.
@@ -39,13 +39,13 @@ Keep local dev ports visible to the user and avoid accidental port conflicts.
 6. If the server must be started by another mechanism, register manually:
 
    ```sh
-   "${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" reserve <port> --tool <tool-name> --project "$PWD" --command "<command>" --purpose "<purpose>"
+   "${WHOPORT_BIN:-whoport}" reserve <port> --tool <tool-name> --project "$PWD" --command "<command>" --purpose "<purpose>"
    ```
 
 7. Release manual registrations when the server is no longer relevant:
 
    ```sh
-   "${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" release <port> --tool <tool-name> --project "$PWD"
+   "${WHOPORT_BIN:-whoport}" release <port> --tool <tool-name> --project "$PWD"
    ```
 
 ## Tool Names
@@ -62,17 +62,17 @@ Use stable lowercase tool names:
 Next.js:
 
 ```sh
-"${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" wrap 3000 --tool codex --project "$PWD" -- pnpm dev
+"${WHOPORT_BIN:-whoport}" wrap 3000 --tool codex --project "$PWD" -- pnpm dev
 ```
 
 Vite:
 
 ```sh
-"${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" wrap 5173 --tool codex --project "$PWD" -- npm run dev
+"${WHOPORT_BIN:-whoport}" wrap 5173 --tool codex --project "$PWD" -- npm run dev
 ```
 
 FastAPI:
 
 ```sh
-"${WHOPORT_BIN:-/Users/jidong/workspace/side/who-use-my-port/bin/whoport}" wrap 8000 --tool codex --project "$PWD" -- uvicorn app.main:app --reload --port 8000
+"${WHOPORT_BIN:-whoport}" wrap 8000 --tool codex --project "$PWD" -- uvicorn app.main:app --reload --port 8000
 ```

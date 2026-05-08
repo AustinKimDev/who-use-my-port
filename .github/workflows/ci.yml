@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate whoport CLI
+        run: python3 -m py_compile bin/whoport
+
+      - name: Build macOS app
+        run: |
+          xcodebuild \
+            -project WhoUseMyPort.xcodeproj \
+            -scheme WhoUseMyPort \
+            -configuration Debug \
+            -derivedDataPath DerivedData \
+            build
