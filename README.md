@@ -1,10 +1,12 @@
 # Who Use My Port
 
-![Who Use My Port README hero](docs/assets/readme-hero.png)
+![Who Use My Port product overview](docs/assets/description.png)
 
 Who Use My Port is a macOS utility for finding which local process is using a port, inspecting process details, and cleaning up stale development-server ownership records.
 
 It is designed for developer machines where local services are frequently started by humans and AI coding tools. The app combines live system port data from macOS with optional `whoport` registrations so you can see not only what is listening, but also which tool/project claimed the port.
+
+![Who Use My Port app preview](docs/assets/readme-hero.png)
 
 The top-right macOS entry point is a menu bar item / status bar item. In SwiftUI this is implemented with `MenuBarExtra`; it is not a macOS widget.
 
