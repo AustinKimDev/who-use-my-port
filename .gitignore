@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 DerivedData/
 build/
+screenshots/
 *.xcuserdata/
 *.xcuserstate
 *.moved-aside
