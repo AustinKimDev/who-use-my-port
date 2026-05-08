@@ -3,6 +3,8 @@ import SwiftUI
 
 struct DetailPanel: View {
     @ObservedObject var viewModel: PortMonitorViewModel
+    @State private var registrationPendingDeletion: PortRegistration?
+    @State private var isConfirmingRegistryDeletion = false
 
     var body: some View {
         Group {
@@ -34,6 +36,23 @@ struct DetailPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .surfacePanel(cornerRadius: 10)
+        .confirmationDialog(
+            "Delete AI usage registration?",
+            isPresented: $isConfirmingRegistryDeletion,
+            titleVisibility: .visible,
+            presenting: registrationPendingDeletion
+        ) { registration in
+            Button("Delete Registration", role: .destructive) {
+                viewModel.delete(registration: registration)
+                registrationPendingDeletion = nil
+            }
+
+            Button("Cancel", role: .cancel) {
+                registrationPendingDeletion = nil
+            }
+        } message: { registration in
+            Text("This removes the stale whoport registration for port \(registration.port). It does not terminate any process.")
+        }
     }
 
     private func portSummary(_ port: MonitoredPort) -> some View {
@@ -85,6 +104,11 @@ struct DetailPanel: View {
                 openProject(port)
             }
 
+            IconActionButton(systemImage: "trash", help: "Delete AI usage registration", tint: AppTheme.danger, isDisabled: port.primaryRegistration == nil) {
+                guard let registration = port.primaryRegistration else { return }
+                confirmDelete(registration)
+            }
+
             IconActionButton(systemImage: "xmark.circle", help: "Terminate", tint: AppTheme.danger, isDisabled: port.primaryProcess == nil) {
                 guard let process = port.primaryProcess else { return }
                 viewModel.terminate(process: process, force: false)
@@ -116,6 +140,10 @@ struct DetailPanel: View {
                             Spacer()
 
                             StatusBadge(text: registration.isStale ? "STALE" : "LIVE", tint: registration.isStale ? AppTheme.amber : AppTheme.mint)
+
+                            IconActionButton(systemImage: "trash", help: "Delete this AI usage registration", tint: AppTheme.danger, isCompact: true) {
+                                confirmDelete(registration)
+                            }
                         }
 
                         MetadataLine(title: "Project", value: registration.projectPath, lineLimit: 2)
@@ -236,6 +264,11 @@ struct DetailPanel: View {
     private func openProject(_ port: MonitoredPort) {
         guard let projectPath = port.primaryRegistration?.projectPath else { return }
         NSWorkspace.shared.open(URL(fileURLWithPath: projectPath))
+    }
+
+    private func confirmDelete(_ registration: PortRegistration) {
+        registrationPendingDeletion = registration
+        isConfirmingRegistryDeletion = true
     }
 }
 

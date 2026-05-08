@@ -9,13 +9,6 @@ struct ProcessList: View {
         VStack(alignment: .leading, spacing: 0) {
             ResultsHeader(viewModel: viewModel, mode: $mode)
 
-            if mode == .ports, !viewModel.ports.isEmpty {
-                PortListHeader()
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-            }
-
             Group {
                 switch mode {
                 case .ports:
@@ -137,14 +130,14 @@ struct PortList: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 4) {
+            LazyVStack(alignment: .leading, spacing: 4) {
                 if viewModel.ports.isEmpty, !viewModel.isScanning {
                     NativeEmptyState(
                         title: "No ports",
                         systemImage: "network.slash",
                         message: "Try another port pack or scan a specific port."
                     )
-                    .frame(maxWidth: .infinity, minHeight: isMenuBar ? 96 : 220)
+                    .frame(maxWidth: .infinity, minHeight: isMenuBar ? 96 : 140, alignment: .topLeading)
                 } else {
                     ForEach(viewModel.ports) { port in
                         PortRow(
@@ -153,19 +146,25 @@ struct PortList: View {
                             isSelected: port.primaryProcess.map { viewModel.selectedPIDs.contains($0.pid) } ?? false,
                             isMenuBar: isMenuBar
                         ) {
-                            viewModel.focus(port: port.port)
+                            let flags = NSEvent.modifierFlags
+                            viewModel.activate(
+                                port: port,
+                                extendRange: flags.contains(.shift),
+                                toggleMembership: flags.contains(.command)
+                            )
                         } toggleSelection: {
-                            guard let pid = port.primaryProcess?.pid else { return }
                             viewModel.toggleSelection(
-                                pid: pid,
+                                port: port,
                                 extendRange: NSEvent.modifierFlags.contains(.shift)
                             )
                         }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(isMenuBar ? 2 : 6)
         }
+        .defaultScrollAnchor(.top)
     }
 }
 
@@ -194,7 +193,7 @@ struct PortRow: View {
         .buttonStyle(.plain)
         .help(rowHelp)
         .accessibilityLabel("Port \(port.port), \(port.statusTitle), \(port.ownerSummary)")
-        .accessibilityHint("Click to inspect this port. Use the check control to select the occupying process for actions.")
+        .accessibilityHint("Click to inspect and select. Shift-click selects a range. Command-click toggles selection.")
         .accessibilityValue(isSelected ? "Selected for actions" : (isFocused ? "Inspecting" : "Not selected"))
     }
 
@@ -236,7 +235,7 @@ struct PortRow: View {
                 .buttonStyle(.plain)
                 .disabled(port.primaryProcess == nil)
                 .opacity(port.primaryProcess == nil ? 0.35 : 1)
-                .help(isSelected ? "Remove from selection" : "Select occupying process")
+                .help(isSelected ? "Remove from selection. Shift-click extends the selected range." : "Select occupying process. Shift-click extends the selected range.")
 
                 Text("\(port.port)")
                     .font(.caption.monospacedDigit().weight(.semibold))
@@ -373,14 +372,14 @@ struct AIUsageList: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 4) {
+            LazyVStack(alignment: .leading, spacing: 4) {
                 if viewModel.aiRegistrations.isEmpty {
                     NativeEmptyState(
                         title: "No AI usage",
                         systemImage: "sparkles.rectangle.stack",
                         message: "AI-started services appear here after whoport registration."
                     )
-                    .frame(maxWidth: .infinity, minHeight: 220)
+                    .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
                 } else {
                     ForEach(viewModel.aiRegistrations) { registration in
                         AIUsageRow(registration: registration) {
@@ -389,8 +388,10 @@ struct AIUsageList: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(6)
         }
+        .defaultScrollAnchor(.top)
     }
 }
 

@@ -24,6 +24,7 @@ final class PortMonitorViewModel: ObservableObject {
     private let processController = ProcessController()
     private let registryStore = PortRegistryStore()
     private var isRefreshing = false
+    private var selectionAnchorPort: Int?
 
     var selectedProcess: PortProcess? {
         if let focusedProcess {
@@ -97,6 +98,9 @@ final class PortMonitorViewModel: ObservableObject {
                 aiRegistrations = registrations
                 ports = monitoredPorts
                 selectedPIDs = selectedPIDs.intersection(Set(foundProcesses.map(\.pid)))
+                if selectedPIDs.isEmpty {
+                    selectionAnchorPort = nil
+                }
                 let foundPIDs = Set(foundProcesses.map(\.pid))
                 focusedPID = foundPIDs.contains(focusedPID ?? -1) ? focusedPID : foundProcesses.first?.pid
                 let foundPorts = Set(monitoredPorts.map(\.port))
@@ -150,10 +154,53 @@ final class PortMonitorViewModel: ObservableObject {
         focusedPID = ports.first { $0.port == port }?.primaryProcess?.pid
     }
 
+    func activate(port: MonitoredPort, extendRange: Bool, toggleMembership: Bool) {
+        focusedPort = port.port
+        focusedPID = port.primaryProcess?.pid
+
+        guard let pid = port.primaryProcess?.pid else {
+            if !extendRange, !toggleMembership {
+                selectedPIDs = []
+                selectionAnchorPort = nil
+            }
+            return
+        }
+
+        if extendRange {
+            selectRange(to: port.port)
+            return
+        }
+
+        if toggleMembership {
+            if selectedPIDs.contains(pid) {
+                selectedPIDs.remove(pid)
+            } else {
+                selectedPIDs.insert(pid)
+            }
+            selectionAnchorPort = port.port
+            return
+        }
+
+        selectedPIDs = [pid]
+        selectionAnchorPort = port.port
+    }
+
     func inspect(registration: PortRegistration) {
         queryText = "\(registration.port)"
         focusedPort = registration.port
         scan()
+    }
+
+    func delete(registration: PortRegistration) {
+        do {
+            let remainingRegistrations = registryStore.load().filter { $0.id != registration.id }
+            try registryStore.save(remainingRegistrations)
+            statusText = "Deleted AI usage for port \(registration.port)"
+            reloadRegistry()
+        } catch {
+            statusText = "Delete failed"
+            errorMessage = error.localizedDescription
+        }
     }
 
     func toggleSelection(pid: Int, extendRange: Bool) {
@@ -178,8 +225,28 @@ final class PortMonitorViewModel: ObservableObject {
         focusedPID = pid
     }
 
+    func toggleSelection(port: MonitoredPort, extendRange: Bool) {
+        focusedPort = port.port
+        focusedPID = port.primaryProcess?.pid
+
+        guard let pid = port.primaryProcess?.pid else { return }
+
+        if extendRange {
+            selectRange(to: port.port)
+            return
+        }
+
+        if selectedPIDs.contains(pid) {
+            selectedPIDs.remove(pid)
+        } else {
+            selectedPIDs.insert(pid)
+        }
+        selectionAnchorPort = port.port
+    }
+
     func clearSelection() {
         selectedPIDs = []
+        selectionAnchorPort = nil
     }
 
     func terminateSelected(force: Bool) {
@@ -205,6 +272,9 @@ final class PortMonitorViewModel: ObservableObject {
                 }
 
                 selectedPIDs.subtract(targetPIDs)
+                if selectedPIDs.isEmpty {
+                    selectionAnchorPort = nil
+                }
                 if targetPIDs.contains(focusedPID ?? -1) {
                     focusedPID = nil
                 }
@@ -215,6 +285,20 @@ final class PortMonitorViewModel: ObservableObject {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func selectRange(to port: Int) {
+        let anchor = selectionAnchorPort ?? focusedPort ?? port
+        guard let anchorIndex = ports.firstIndex(where: { $0.port == anchor }),
+              let targetIndex = ports.firstIndex(where: { $0.port == port }) else {
+            selectionAnchorPort = port
+            return
+        }
+
+        let bounds = min(anchorIndex, targetIndex)...max(anchorIndex, targetIndex)
+        let rangePIDs = ports[bounds].compactMap { $0.primaryProcess?.pid }
+        selectedPIDs.formUnion(rangePIDs)
+        selectionAnchorPort = anchor
     }
 
     private static func makeMonitoredPorts(
